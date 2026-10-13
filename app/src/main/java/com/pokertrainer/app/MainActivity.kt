@@ -132,6 +132,11 @@ fun LessonDetailScreen(nav: NavHostController, lessonId: String) {
 
 private enum class PracticePhase { QUESTION, FEEDBACK, DONE }
 
+/** Lessons whose concept the live Play engine actually exercises (position/range/postflop play). */
+private val PLAY_ENGINE_LESSONS = setOf(
+    "position", "ranges", "cbet", "checkraise", "threebet", "betsizing", "bluffing", "multiway", "overbetting",
+)
+
 @Composable
 fun PracticeScreen(nav: NavHostController, lessonId: String, progress: ProgressStore) {
     val scenarios = remember(lessonId) { Scenarios.forLesson(lessonId) }
@@ -162,6 +167,10 @@ fun PracticeScreen(nav: NavHostController, lessonId: String, progress: ProgressS
                 Button(onClick = {
                     index = 0; correctCount = 0; selectedOptionId = null; phase = PracticePhase.QUESTION
                 }) { Text("Practice again") }
+                if (lessonId in PLAY_ENGINE_LESSONS) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = { nav.navigate("seats") }) { Text("Try this live in a hand") }
+                }
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = { nav.popBackStack() }) { Text("Back to lesson") }
             }
