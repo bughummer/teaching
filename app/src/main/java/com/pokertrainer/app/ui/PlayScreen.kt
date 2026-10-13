@@ -160,7 +160,7 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "Villain called your raise. Tap every hand you think they could still have:",
+                    "Drag across every hand you think they could still have (tap one to undo it):",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -169,8 +169,11 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
                     onTap = { handClass ->
                         guessed = if (handClass in guessed) guessed - handClass else guessed + handClass
                     },
+                    onDragSelect = { handClass -> guessed = guessed + handClass },
                 )
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { guessed = emptySet() }) { Text("Clear selection") }
+                Spacer(Modifier.height(8.dp))
                 Button(onClick = { session.submitRangeGuess(guessed); refresh() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Lock in guess")
                 }
