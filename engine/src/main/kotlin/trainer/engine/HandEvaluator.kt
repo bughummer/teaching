@@ -31,9 +31,13 @@ object HandEvaluator {
         val isFlush = hand.map { it.suit }.toSet().size == 1
         val straightHigh = straightHighCard(ranks.toSet())
 
+        // Always pad to exactly 5 kicker slots so every category occupies the same magnitude
+        // range (category * 16^5 .. category * 16^5 + 16^5 - 1) and categories compare correctly.
         fun pack(category: Int, kickers: List<Int>): Long {
+            require(kickers.size <= 5)
             var v = category.toLong()
             for (k in kickers) v = v * 16 + k
+            repeat(5 - kickers.size) { v *= 16 }
             return v
         }
 
