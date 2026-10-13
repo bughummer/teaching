@@ -30,6 +30,7 @@ enum class Archetype(val label: String, val description: String) {
 }
 
 enum class PreflopAction { FOLD, CALL, THREE_BET }
+enum class SimplePreflopAction { FOLD, CALL }
 
 object Opponent {
     fun preflopAction(archetype: Archetype, random: kotlin.random.Random): PreflopAction {
@@ -59,6 +60,16 @@ object Opponent {
 
     fun foldsToBet(archetype: Archetype, betSizeFactor: Double, rangeAdvantage: Double, random: kotlin.random.Random): Boolean =
         random.nextDouble() >= continueFraction(archetype, betSizeFactor, rangeAdvantage)
+
+    /**
+     * Fold-or-call only, no three-bet: used for a second opponent in a multi-way pot, who is
+     * modeled as a cold-caller rather than a blind defender (shortcut: multi-way pots don't model
+     * anyone three-betting, to keep the number of branches bounded).
+     */
+    fun multiwayPreflopAction(archetype: Archetype, random: kotlin.random.Random): SimplePreflopAction {
+        val fold = (0.5 * archetype.foldBias).coerceIn(0.1, 0.85)
+        return if (random.nextDouble() < fold) SimplePreflopAction.FOLD else SimplePreflopAction.CALL
+    }
 
     fun foldsToFourBet(archetype: Archetype, random: kotlin.random.Random): Boolean =
         random.nextDouble() < archetype.fourBetFoldFrequency

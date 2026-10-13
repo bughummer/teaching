@@ -29,7 +29,7 @@ fun SeatPickScreen(nav: NavHostController) {
             items(Seat.entries) { seat ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = { nav.navigate("archetypes/${seat.name}") },
+                    onClick = { nav.navigate("opponentCount/${seat.name}") },
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(seat.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -46,12 +46,31 @@ fun SeatPickScreen(nav: NavHostController) {
 }
 
 @Composable
-fun ArchetypePickScreen(nav: NavHostController, seatName: String) {
+fun OpponentCountScreen(nav: NavHostController, seatName: String) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Play a Hand", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("How many opponents?", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = { nav.navigate("archetypes/$seatName/1/0/_") },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("1 — heads-up (3-bets and check-raises included)") }
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { nav.navigate("archetypes/$seatName/2/0/_") },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("2 — multi-way pot") }
+    }
+}
+
+@Composable
+fun ArchetypePickScreen(nav: NavHostController, seatName: String, count: Int, index: Int, chosenCsv: String) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Play a Hand", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Pick who's in the big blind.",
+            if (count == 1) "Pick who's in the big blind." else "Pick opponent ${index + 1} of $count.",
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
@@ -59,7 +78,14 @@ fun ArchetypePickScreen(nav: NavHostController, seatName: String) {
             items(Archetype.entries) { archetype ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = { nav.navigate("play/${archetype.name}/$seatName") },
+                    onClick = {
+                        val chosen = if (chosenCsv == "_") archetype.name else "$chosenCsv,${archetype.name}"
+                        if (index + 1 < count) {
+                            nav.navigate("archetypes/$seatName/$count/${index + 1}/$chosen")
+                        } else {
+                            nav.navigate("play/$seatName/$chosen")
+                        }
+                    },
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(archetype.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -73,16 +99,18 @@ fun ArchetypePickScreen(nav: NavHostController, seatName: String) {
 }
 
 @Composable
-fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, history: HandHistoryStore) {
-    val archetype = remember(archetypeName) { Archetype.valueOf(archetypeName) }
+fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, history: HandHistoryStore) {
     val seat = remember(seatName) { Seat.valueOf(seatName) }
-    var session by remember(archetype, seat) { mutableStateOf(HandSession(archetype, seat)) }
+    val archetypes = remember(archetypesCsv) { archetypesCsv.split(",").map { Archetype.valueOf(it) } }
+    val archetype = archetypes[0] // only meaningful heads-up (3-bet/check-raise states only reachable with one opponent)
+    val opponentSummary = remember(archetypes) { archetypes.joinToString(" + ") { it.label } }
+    var session by remember(archetypes, seat) { mutableStateOf(HandSession(archetypes, seat)) }
     var uiState by remember(session) { mutableStateOf(session.state) }
     var guessed by remember(session) { mutableStateOf(setOf<HandClass>()) }
 
     fun refresh() { uiState = session.state }
     fun newHand() {
-        session = HandSession(archetype, seat)
+        session = HandSession(archetypes, seat)
         uiState = session.state
         guessed = emptySet()
     }
@@ -93,11 +121,11 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
             is HandState.HandEnded -> s.summary
             else -> null
         }
-        summary?.let { history.record(seat.label, archetype.label, it) }
+        summary?.let { history.record(seat.label, opponentSummary, it) }
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("${seat.label} vs ${archetype.label}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("${seat.label} vs $opponentSummary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
 
         AnimatedContent(
@@ -160,7 +188,8 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "Drag across every hand you think they could still have (tap one to undo it):",
+                    "${state.opponentLabel} called. Drag across every hand you think they could still have " +
+                        "(tap one to undo it)" + (if (state.remaining > 0) " — ${state.remaining} more opponent(s) after this" else "") + ":",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -184,7 +213,7 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Precision ${(state.precision * 100).toInt()}% · Recall ${(state.recall * 100).toInt()}%",
+                    "${state.opponentLabel} — Precision ${(state.precision * 100).toInt()}% · Recall ${(state.recall * 100).toInt()}%",
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(4.dp))
@@ -228,21 +257,26 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
                 Spacer(Modifier.height(8.dp))
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(12.dp))
-                Text("Your hand's equity vs villain's remaining range here: ${(state.heroEquity * 100).toInt()}%")
-                Text("Your whole opening range's equity vs their range: ${(state.rangeAdvantage * 100).toInt()}%")
+                val rangeAdvantageOf = state.rangeAdvantageByOpponent.toMap()
+                state.equityByOpponent.forEach { (label, equity) ->
+                    val rangeAdvantage = rangeAdvantageOf[label] ?: 0.5
+                    Text("vs $label — your hand: ${(equity * 100).toInt()}% · your range: ${(rangeAdvantage * 100).toInt()}%")
+                }
                 Spacer(Modifier.height(4.dp))
+                val worstRangeAdvantage = state.rangeAdvantageByOpponent.minOf { it.second }
                 Text(
-                    if (state.rangeAdvantage > 0.52)
-                        "Your range is ahead here — a continuation bet applies real pressure."
+                    if (worstRangeAdvantage > 0.52)
+                        "Your range is ahead of everyone still in — a continuation bet applies real pressure."
                     else
-                        "This board favors villain's range more than usual — betting every time is less automatic.",
+                        "At least one opponent's range holds up well here — betting every time is less automatic.",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                val worstEquity = state.equityByOpponent.minOf { it.second }
                 Text(
-                    if (state.heroEquity > 0.5)
-                        "A bet here would be for value — you're ahead more often than not."
+                    if (worstEquity > 0.5)
+                        "A bet here would be for value against everyone still in."
                     else
-                        "A bet here would be a bluff — you're behind, betting only to fold out better hands.",
+                        "A bet here would be a bluff against at least one opponent — you're not ahead of all of them.",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                 )

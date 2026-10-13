@@ -20,6 +20,7 @@ import trainer.engine.content.Lessons
 import trainer.engine.content.Scenario
 import trainer.engine.content.Scenarios
 import com.pokertrainer.app.ui.ArchetypePickScreen
+import com.pokertrainer.app.ui.OpponentCountScreen
 import com.pokertrainer.app.ui.PlayScreen
 import com.pokertrainer.app.ui.SeatPickScreen
 
@@ -52,14 +53,22 @@ fun AppNavHost(progress: ProgressStore, history: HandHistoryStore) {
             PracticeScreen(navController, id, progress)
         }
         composable("seats") { SeatPickScreen(navController) }
-        composable("archetypes/{seat}") { backStackEntry ->
+        composable("opponentCount/{seat}") { backStackEntry ->
             val seat = backStackEntry.arguments?.getString("seat") ?: return@composable
-            ArchetypePickScreen(navController, seat)
+            OpponentCountScreen(navController, seat)
         }
-        composable("play/{archetype}/{seat}") { backStackEntry ->
-            val archetype = backStackEntry.arguments?.getString("archetype") ?: return@composable
+        composable("archetypes/{seat}/{count}/{index}/{chosen}") { backStackEntry ->
+            val args = backStackEntry.arguments ?: return@composable
+            val seat = args.getString("seat") ?: return@composable
+            val count = args.getString("count")?.toIntOrNull() ?: return@composable
+            val index = args.getString("index")?.toIntOrNull() ?: return@composable
+            val chosen = args.getString("chosen") ?: return@composable
+            ArchetypePickScreen(navController, seat, count, index, chosen)
+        }
+        composable("play/{seat}/{archetypes}") { backStackEntry ->
             val seat = backStackEntry.arguments?.getString("seat") ?: return@composable
-            PlayScreen(navController, archetype, seat, history)
+            val archetypes = backStackEntry.arguments?.getString("archetypes") ?: return@composable
+            PlayScreen(navController, seat, archetypes, history)
         }
         composable("history") { HandHistoryScreen(history) }
     }
