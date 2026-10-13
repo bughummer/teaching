@@ -19,7 +19,7 @@ class HandSessionTest {
             session.openOrFold(open = true)
             val afterOpen = session.state
             if (afterOpen is HandState.FacingThreeBet) {
-                session.respondToThreeBet(call = false)
+                session.respondToThreeBet(ThreeBetResponse.FOLD)
                 assertTrue(session.state is HandState.HandEndedPreflop)
                 return
             }
@@ -27,17 +27,42 @@ class HandSessionTest {
     }
 
     @Test
+    fun `four-betting either wins preflop or proceeds to a flop`() {
+        for (seed in 0 until 100) {
+            val session = HandSession(Archetype.ROCK, random = kotlin.random.Random(seed.toLong()))
+            session.openOrFold(open = true)
+            if (session.state is HandState.FacingThreeBet) {
+                session.respondToThreeBet(ThreeBetResponse.FOUR_BET)
+                val result = session.state
+                assertTrue(
+                    result is HandState.HandEndedPreflop || result is HandState.RangeGuess,
+                    "expected a terminal preflop win or a flop after four-betting, got $result",
+                )
+                return
+            }
+        }
+    }
+
+    @Test
+    fun `every seat produces a playable preflop hand without crashing`() {
+        for (seat in Seat.entries) {
+            val session = HandSession(Archetype.SHARK, seat, random = kotlin.random.Random(seat.ordinal.toLong()))
+            assertTrue(session.state is HandState.PreflopDecision)
+            session.openOrFold(open = true)
+        }
+    }
+
+    @Test
     fun `a full hand reaches river showdown or ends earlier without crashing, many seeds`() {
-        for (seed in 0 until 60) {
-            val session = HandSession(Archetype.entries[seed % 3], random = kotlin.random.Random(seed.toLong()))
+        for (seed in 0 until 80) {
+            val session = HandSession(Archetype.entries[seed % 3], Seat.entries[seed % 4], random = kotlin.random.Random(seed.toLong()))
             session.openOrFold(open = true)
 
             when (session.state) {
                 is HandState.HandEndedPreflop -> continue
-                is HandState.FacingThreeBet -> session.respondToThreeBet(call = true)
+                is HandState.FacingThreeBet -> session.respondToThreeBet(ThreeBetResponse.CALL)
                 else -> {}
             }
-
             if (session.state is HandState.HandEndedPreflop) continue
 
             val guessState = session.state
@@ -47,8 +72,12 @@ class HandSessionTest {
             session.proceedToFlopDecision()
 
             var guardRails = 0
-            while (session.state is HandState.StreetDecision && guardRails < 10) {
-                session.chooseStreetAction(FlopAction.entries[(seed + guardRails) % 3])
+            while (session.state !is HandState.HandEnded && guardRails < 15) {
+                when (val s = session.state) {
+                    is HandState.StreetDecision -> session.chooseStreetAction(FlopAction.entries[(seed + guardRails) % 3])
+                    is HandState.FacingBet -> session.respondToBet(FacingBetAction.entries[(seed + guardRails) % 3])
+                    else -> error("unexpected state mid-hand: $s")
+                }
                 guardRails++
             }
             assertTrue(session.state is HandState.HandEnded, "expected terminal state for seed $seed, got ${session.state}")

@@ -19,8 +19,14 @@ enum class Archetype(val label: String, val description: String) {
     val foldBias: Double get() = when (this) { ROCK -> 1.3; STATION -> 0.5; SHARK -> 1.0 }
     val threeBetBias: Double get() = when (this) { ROCK -> 0.7; STATION -> 0.2; SHARK -> 1.3 }
 
-    /** How often this archetype folds to a continuation bet, before factoring in board/range equity. */
-    val baseFoldToCBet: Double get() = when (this) { ROCK -> 0.65; STATION -> 0.25; SHARK -> 0.45 }
+    /** Baseline fraction of this archetype's range that continues facing a postflop bet, before board/sizing. */
+    val baseContinueFraction: Double get() = when (this) { ROCK -> 0.35; STATION -> 0.75; SHARK -> 0.55 }
+
+    /** How often this archetype folds to a four-bet (a much smaller, tighter calling range than a 3-bet). */
+    val fourBetFoldFrequency: Double get() = when (this) { ROCK -> 0.75; STATION -> 0.35; SHARK -> 0.55 }
+
+    /** How often this archetype bets into the preflop raiser instead of checking to them (a "donk" lead). */
+    val leadFrequency: Double get() = when (this) { ROCK -> 0.08; STATION -> 0.3; SHARK -> 0.2 }
 }
 
 enum class PreflopAction { FOLD, CALL, THREE_BET }
@@ -41,12 +47,22 @@ object Opponent {
     }
 
     /**
-     * Whether this archetype folds to a flop continuation bet, factoring in how much their actual
-     * continuing range connects with this board (less connection -> folds more).
+     * Fraction of this archetype's range that continues facing a bet of this size, on this board.
+     * Used both to decide whether the single sampled villain hand folds, and to narrow the
+     * on-screen range afterward, so the two always agree with each other.
      */
-    fun foldsToCBet(archetype: Archetype, rangeEquityOnBoard: Double, random: kotlin.random.Random): Boolean {
-        val adjustment = (0.5 - rangeEquityOnBoard) * 0.6
-        val foldChance = (archetype.baseFoldToCBet + adjustment).coerceIn(0.1, 0.9)
-        return random.nextDouble() < foldChance
+    fun continueFraction(archetype: Archetype, betSizeFactor: Double, rangeAdvantage: Double): Double {
+        val sizeAdjustment = -(betSizeFactor - 0.5) * 0.3
+        val boardAdjustment = -(rangeAdvantage - 0.5) * 0.6
+        return (archetype.baseContinueFraction + sizeAdjustment + boardAdjustment).coerceIn(0.15, 0.95)
     }
+
+    fun foldsToBet(archetype: Archetype, betSizeFactor: Double, rangeAdvantage: Double, random: kotlin.random.Random): Boolean =
+        random.nextDouble() >= continueFraction(archetype, betSizeFactor, rangeAdvantage)
+
+    fun foldsToFourBet(archetype: Archetype, random: kotlin.random.Random): Boolean =
+        random.nextDouble() < archetype.fourBetFoldFrequency
+
+    fun leadsIntoHero(archetype: Archetype, random: kotlin.random.Random): Boolean =
+        random.nextDouble() < archetype.leadFrequency
 }

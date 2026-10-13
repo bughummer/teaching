@@ -52,19 +52,34 @@ object DefaultRanges {
         return Range(weights)
     }
 
-    fun buttonOpenRange(): Range = topFraction(0.45)
-    fun bigBlindDefendRange(): Range = topFraction(0.35)
+    fun openRange(seat: Seat): Range = topFraction(seat.openFraction)
+    fun buttonOpenRange(): Range = openRange(Seat.BUTTON)
+
+    /**
+     * How wide the big blind defends depends on how wide the opener's range is: an under-the-gun
+     * open is much more credible than a button open, so the big blind can afford to defend tighter
+     * against it and still show a profit, and wider against a button open.
+     */
+    fun bigBlindDefendRange(heroOpenSeat: Seat = Seat.BUTTON): Range =
+        topFraction((0.20 + heroOpenSeat.openFraction * 0.4).coerceAtMost(0.55))
 
     /** The strongest slice of the defend range, treated as "would 3-bet instead of flatting." */
-    fun bigBlindThreeBetSlice(): Range {
-        val defend = bigBlindDefendRange().classes()
+    fun bigBlindThreeBetSlice(heroOpenSeat: Seat = Seat.BUTTON): Range {
+        val defend = bigBlindDefendRange(heroOpenSeat).classes()
         val threeBetClasses = topFraction(0.07).classes()
         return Range(threeBetClasses.filter { it in defend }.associateWith { 1.0 })
     }
 
     /** The defend range minus the three-bet slice: hands that call rather than raise. */
-    fun bigBlindCallRange(): Range {
-        val threeBet = bigBlindThreeBetSlice().classes()
-        return bigBlindDefendRange().filter { it !in threeBet }
+    fun bigBlindCallRange(heroOpenSeat: Seat = Seat.BUTTON): Range {
+        val threeBet = bigBlindThreeBetSlice(heroOpenSeat).classes()
+        return bigBlindDefendRange(heroOpenSeat).filter { it !in threeBet }
     }
+}
+
+enum class Seat(val label: String, val openFraction: Double) {
+    UNDER_THE_GUN("Under the Gun", 0.13),
+    MIDDLE_POSITION("Middle Position", 0.20),
+    CUTOFF("Cutoff", 0.30),
+    BUTTON("Button", 0.45),
 }
