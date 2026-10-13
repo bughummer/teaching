@@ -14,12 +14,39 @@ import androidx.navigation.NavHostController
 import trainer.engine.range.*
 
 @Composable
-fun ArchetypePickScreen(nav: NavHostController) {
+fun SeatPickScreen(nav: NavHostController) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Play a Hand", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(4.dp))
+        Text("Pick the seat you're opening from.", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(Seat.entries) { seat ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { nav.navigate("archetypes/${seat.name}") },
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(seat.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Opens about ${(seat.openFraction * 100).toInt()}% of hands.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ArchetypePickScreen(nav: NavHostController, seatName: String) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Play a Hand", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "You're on the button. Pick who's in the big blind.",
+            "Pick who's in the big blind.",
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
@@ -27,7 +54,7 @@ fun ArchetypePickScreen(nav: NavHostController) {
             items(Archetype.entries) { archetype ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = { nav.navigate("play/${archetype.name}") },
+                    onClick = { nav.navigate("play/${archetype.name}/$seatName") },
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(archetype.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -41,26 +68,27 @@ fun ArchetypePickScreen(nav: NavHostController) {
 }
 
 @Composable
-fun PlayScreen(nav: NavHostController, archetypeName: String) {
+fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String) {
     val archetype = remember(archetypeName) { Archetype.valueOf(archetypeName) }
-    var session by remember(archetype) { mutableStateOf(HandSession(archetype)) }
+    val seat = remember(seatName) { Seat.valueOf(seatName) }
+    var session by remember(archetype, seat) { mutableStateOf(HandSession(archetype, seat)) }
     var uiState by remember(session) { mutableStateOf(session.state) }
     var guessed by remember(session) { mutableStateOf(setOf<HandClass>()) }
 
     fun refresh() { uiState = session.state }
     fun newHand() {
-        session = HandSession(archetype)
+        session = HandSession(archetype, seat)
         uiState = session.state
         guessed = emptySet()
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("vs ${archetype.label}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("${seat.label} vs ${archetype.label}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
 
         when (val state = uiState) {
             is HandState.PreflopDecision -> {
-                Text("You're on the button. Your hand:")
+                Text("Your hand:")
                 Spacer(Modifier.height(8.dp))
                 CardRow(listOf(state.heroHand.first, state.heroHand.second))
                 Spacer(Modifier.height(24.dp))
@@ -82,13 +110,20 @@ fun PlayScreen(nav: NavHostController, archetypeName: String) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = { session.respondToThreeBet(true); refresh() }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Call and see a flop")
-                }
+                Button(
+                    onClick = { session.respondToThreeBet(ThreeBetResponse.CALL); refresh() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Call and see a flop") }
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { session.respondToThreeBet(false); refresh() }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Fold")
-                }
+                Button(
+                    onClick = { session.respondToThreeBet(ThreeBetResponse.FOUR_BET); refresh() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Four-bet") }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { session.respondToThreeBet(ThreeBetResponse.FOLD); refresh() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Fold") }
             }
 
             is HandState.HandEndedPreflop -> {
@@ -199,6 +234,27 @@ fun PlayScreen(nav: NavHostController, archetypeName: String) {
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = { session.chooseStreetAction(FlopAction.BET_BIG); refresh() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Bet full pot (${state.pot})")
+                }
+            }
+
+            is HandState.FacingBet -> {
+                Text("${state.street.name.lowercase().replaceFirstChar { it.uppercase() }} · Pot: ${state.pot}")
+                Spacer(Modifier.height(8.dp))
+                CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
+                Spacer(Modifier.height(12.dp))
+                Text("${archetype.label} bet ${state.betSize} into you.")
+                Text("Your hand's equity here: ${(state.heroEquity * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { session.respondToBet(FacingBetAction.CALL); refresh() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Call")
+                }
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = { session.respondToBet(FacingBetAction.RAISE); refresh() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Check-raise")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { session.respondToBet(FacingBetAction.FOLD); refresh() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Fold")
                 }
             }
 

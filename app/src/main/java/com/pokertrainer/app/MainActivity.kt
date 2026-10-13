@@ -21,6 +21,7 @@ import trainer.engine.content.Scenario
 import trainer.engine.content.Scenarios
 import com.pokertrainer.app.ui.ArchetypePickScreen
 import com.pokertrainer.app.ui.PlayScreen
+import com.pokertrainer.app.ui.SeatPickScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,10 +50,15 @@ fun AppNavHost(progress: ProgressStore) {
             val id = backStackEntry.arguments?.getString("id") ?: return@composable
             PracticeScreen(navController, id, progress)
         }
-        composable("archetypes") { ArchetypePickScreen(navController) }
-        composable("play/{archetype}") { backStackEntry ->
+        composable("seats") { SeatPickScreen(navController) }
+        composable("archetypes/{seat}") { backStackEntry ->
+            val seat = backStackEntry.arguments?.getString("seat") ?: return@composable
+            ArchetypePickScreen(navController, seat)
+        }
+        composable("play/{archetype}/{seat}") { backStackEntry ->
             val archetype = backStackEntry.arguments?.getString("archetype") ?: return@composable
-            PlayScreen(navController, archetype)
+            val seat = backStackEntry.arguments?.getString("seat") ?: return@composable
+            PlayScreen(navController, archetype, seat)
         }
     }
 }
@@ -62,7 +68,7 @@ fun LessonListScreen(nav: NavHostController, progress: ProgressStore) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Lessons", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(8.dp))
-        Button(onClick = { nav.navigate("archetypes") }, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { nav.navigate("seats") }, modifier = Modifier.fillMaxWidth()) {
             Text("Play a hand")
         }
         Spacer(Modifier.height(16.dp))
