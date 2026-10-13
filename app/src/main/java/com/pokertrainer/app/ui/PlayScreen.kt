@@ -18,6 +18,13 @@ import androidx.navigation.NavHostController
 import com.pokertrainer.app.HandHistoryStore
 import trainer.engine.range.*
 
+private fun shortSeatName(seat: Seat): String = when (seat) {
+    Seat.UNDER_THE_GUN -> "UTG"
+    Seat.MIDDLE_POSITION -> "MP"
+    Seat.CUTOFF -> "CO"
+    Seat.BUTTON -> "BTN"
+}
+
 @Composable
 fun SeatPickScreen(nav: NavHostController) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -38,6 +45,8 @@ fun SeatPickScreen(nav: NavHostController) {
                             "Opens about ${(seat.openFraction * 100).toInt()}% of hands.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
+                        Spacer(Modifier.height(8.dp))
+                        SeatDiagram(highlight = shortSeatName(seat), modifier = Modifier.height(100.dp))
                     }
                 }
             }
@@ -56,11 +65,13 @@ fun OpponentCountScreen(nav: NavHostController, seatName: String) {
             onClick = { nav.navigate("archetypes/$seatName/1/0/_") },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("1 — heads-up (3-bets and check-raises included)") }
-        Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = { nav.navigate("archetypes/$seatName/2/0/_") },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("2 — multi-way pot") }
+        for (count in 2..5) {
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = { nav.navigate("archetypes/$seatName/$count/0/_") },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("$count — multi-way pot") }
+        }
     }
 }
 
@@ -183,9 +194,10 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
             }
 
             is HandState.RangeGuess -> {
-                AnimatedPotLabel(state.pot)
+                PokerTable(session.opponentDisplays(), state.board, state.pot)
                 Spacer(Modifier.height(8.dp))
-                CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
+                Text("Your hand:", style = MaterialTheme.typography.labelMedium)
+                CardRow(listOf(state.heroHand.first, state.heroHand.second))
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "${state.opponentLabel} called. Drag across every hand you think they could still have " +
@@ -210,7 +222,10 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
 
             is HandState.RangeGuessResult -> {
                 var selected by remember(state) { mutableStateOf<HandClass?>(null) }
-                CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
+                PokerTable(session.opponentDisplays(), state.board, state.pot)
+                Spacer(Modifier.height(8.dp))
+                Text("Your hand:", style = MaterialTheme.typography.labelMedium)
+                CardRow(listOf(state.heroHand.first, state.heroHand.second))
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "${state.opponentLabel} — Precision ${(state.precision * 100).toInt()}% · Recall ${(state.recall * 100).toInt()}%",
@@ -253,9 +268,11 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
             }
 
             is HandState.StreetDecision -> {
-                AnimatedPotLabel(state.pot, prefix = "${state.street.name.lowercase().replaceFirstChar { it.uppercase() }} · Pot: ")
+                Text(state.street.name.lowercase().replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge)
+                PokerTable(session.opponentDisplays(), state.board, state.pot)
                 Spacer(Modifier.height(8.dp))
-                CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
+                Text("Your hand:", style = MaterialTheme.typography.labelMedium)
+                CardRow(listOf(state.heroHand.first, state.heroHand.second))
                 Spacer(Modifier.height(12.dp))
                 val rangeAdvantageOf = state.rangeAdvantageByOpponent.toMap()
                 state.equityByOpponent.forEach { (label, equity) ->
@@ -295,9 +312,11 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
             }
 
             is HandState.FacingBet -> {
-                AnimatedPotLabel(state.pot, prefix = "${state.street.name.lowercase().replaceFirstChar { it.uppercase() }} · Pot: ")
+                Text(state.street.name.lowercase().replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge)
+                PokerTable(session.opponentDisplays(), state.board, state.pot)
                 Spacer(Modifier.height(8.dp))
-                CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
+                Text("Your hand:", style = MaterialTheme.typography.labelMedium)
+                CardRow(listOf(state.heroHand.first, state.heroHand.second))
                 Spacer(Modifier.height(12.dp))
                 Text("${archetype.label} bet ${state.betSize} into you.")
                 Text("Your hand's equity here: ${(state.heroEquity * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
@@ -316,7 +335,10 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
             }
 
             is HandState.HandEnded -> {
-                CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
+                PokerTable(session.opponentDisplays(), state.board)
+                Spacer(Modifier.height(8.dp))
+                Text("Your hand:", style = MaterialTheme.typography.labelMedium)
+                CardRow(listOf(state.heroHand.first, state.heroHand.second))
                 Spacer(Modifier.height(16.dp))
                 Text(state.summary, style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(24.dp))
