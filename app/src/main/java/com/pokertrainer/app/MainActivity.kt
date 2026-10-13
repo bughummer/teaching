@@ -19,6 +19,8 @@ import androidx.navigation.compose.rememberNavController
 import trainer.engine.content.Lessons
 import trainer.engine.content.Scenario
 import trainer.engine.content.Scenarios
+import com.pokertrainer.app.ui.ArchetypePickScreen
+import com.pokertrainer.app.ui.PlayScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +49,11 @@ fun AppNavHost(progress: ProgressStore) {
             val id = backStackEntry.arguments?.getString("id") ?: return@composable
             PracticeScreen(navController, id, progress)
         }
+        composable("archetypes") { ArchetypePickScreen(navController) }
+        composable("play/{archetype}") { backStackEntry ->
+            val archetype = backStackEntry.arguments?.getString("archetype") ?: return@composable
+            PlayScreen(navController, archetype)
+        }
     }
 }
 
@@ -55,6 +62,10 @@ fun LessonListScreen(nav: NavHostController, progress: ProgressStore) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Lessons", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(8.dp))
+        Button(onClick = { nav.navigate("archetypes") }, modifier = Modifier.fillMaxWidth()) {
+            Text("Play a hand")
+        }
+        Spacer(Modifier.height(16.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(Lessons.all) { lesson ->
                 val best = progress.bestScore(lesson.id)
