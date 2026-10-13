@@ -1,5 +1,9 @@
 package com.pokertrainer.app.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.pokertrainer.app.HandHistoryStore
 import trainer.engine.range.*
 
 @Composable
@@ -68,7 +73,7 @@ fun ArchetypePickScreen(nav: NavHostController, seatName: String) {
 }
 
 @Composable
-fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String) {
+fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, history: HandHistoryStore) {
     val archetype = remember(archetypeName) { Archetype.valueOf(archetypeName) }
     val seat = remember(seatName) { Seat.valueOf(seatName) }
     var session by remember(archetype, seat) { mutableStateOf(HandSession(archetype, seat)) }
@@ -82,11 +87,26 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String) 
         guessed = emptySet()
     }
 
+    LaunchedEffect(uiState) {
+        val summary = when (val s = uiState) {
+            is HandState.HandEndedPreflop -> s.summary
+            is HandState.HandEnded -> s.summary
+            else -> null
+        }
+        summary?.let { history.record(seat.label, archetype.label, it) }
+    }
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("${seat.label} vs ${archetype.label}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
 
-        when (val state = uiState) {
+        AnimatedContent(
+            targetState = uiState,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "handState",
+        ) { targetState ->
+        Column {
+        when (val state = targetState) {
             is HandState.PreflopDecision -> {
                 Text("Your hand:")
                 Spacer(Modifier.height(8.dp))
@@ -265,6 +285,8 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String) 
                 Spacer(Modifier.height(24.dp))
                 EndHandButtons(onPlayAgain = { newHand() }, onBack = { nav.popBackStack() })
             }
+        }
+        }
         }
     }
 }

@@ -27,10 +27,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val progress = ProgressStore(applicationContext)
+        val history = HandHistoryStore(applicationContext)
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppNavHost(progress)
+                    AppNavHost(progress, history)
                 }
             }
         }
@@ -38,7 +39,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavHost(progress: ProgressStore) {
+fun AppNavHost(progress: ProgressStore, history: HandHistoryStore) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "lessons") {
         composable("lessons") { LessonListScreen(navController, progress) }
@@ -58,8 +59,9 @@ fun AppNavHost(progress: ProgressStore) {
         composable("play/{archetype}/{seat}") { backStackEntry ->
             val archetype = backStackEntry.arguments?.getString("archetype") ?: return@composable
             val seat = backStackEntry.arguments?.getString("seat") ?: return@composable
-            PlayScreen(navController, archetype, seat)
+            PlayScreen(navController, archetype, seat, history)
         }
+        composable("history") { HandHistoryScreen(history) }
     }
 }
 
@@ -70,6 +72,10 @@ fun LessonListScreen(nav: NavHostController, progress: ProgressStore) {
         Spacer(Modifier.height(8.dp))
         Button(onClick = { nav.navigate("seats") }, modifier = Modifier.fillMaxWidth()) {
             Text("Play a hand")
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { nav.navigate("history") }, modifier = Modifier.fillMaxWidth()) {
+            Text("Hand history")
         }
         Spacer(Modifier.height(16.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -242,6 +248,34 @@ private fun ScenarioCard(scenario: Scenario) {
                 scenario.betFacing?.let { append("  •  Facing bet: $it") }
             }
             Text(potLine, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+@Composable
+fun HandHistoryScreen(history: HandHistoryStore) {
+    val entries = remember { history.all() }
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Hand History", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(8.dp))
+        if (entries.isEmpty()) {
+            Text("No hands played yet.", style = MaterialTheme.typography.bodyMedium)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(entries) { entry ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                "${entry.seat} vs ${entry.archetype}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(entry.summary, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
         }
     }
 }
