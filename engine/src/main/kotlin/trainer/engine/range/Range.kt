@@ -1,6 +1,7 @@
 package trainer.engine.range
 
 import trainer.engine.Card
+import trainer.engine.HandEvaluator
 
 /** A weighted mix of hand classes: weight 1.0 = always play this class, 0.0 = never. */
 class Range(private val weights: Map<HandClass, Double>) {
@@ -39,4 +40,22 @@ class Range(private val weights: Map<HandClass, Double>) {
     fun weightedCombos(dead: Set<Card>): List<Pair<Pair<Card, Card>, Double>> =
         weights.entries.filter { it.value > 0.0 }
             .flatMap { (handClass, w) -> handClass.combos(dead).map { it to w } }
+
+    /**
+     * Keeps only the strongest [keepFraction] of this range's classes, ranked by how each class's
+     * best-represented combo actually scores on this board (not preflop strength). Models a range
+     * narrowing after it continues facing a bet: a bigger bet (smaller [keepFraction]) folds out
+     * more of the weaker continuations. Shortcut: ranks by one representative combo per class, not
+     * every combo, to stay cheap — fine for display/teaching, not solver-grade.
+     */
+    fun narrowOnBoard(board: List<Card>, keepFraction: Double): Range {
+        val dead = board.toSet()
+        val scored = classes().mapNotNull { handClass ->
+            val combo = handClass.combos(dead).firstOrNull() ?: return@mapNotNull null
+            handClass to HandEvaluator.score(listOf(combo.first, combo.second) + board)
+        }.sortedByDescending { it.second }
+        val keepCount = (scored.size * keepFraction).toInt().coerceAtLeast(1)
+        val kept = scored.take(keepCount).map { it.first }.toSet()
+        return filter { it in kept }
+    }
 }

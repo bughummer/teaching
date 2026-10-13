@@ -73,6 +73,24 @@ fun PlayScreen(nav: NavHostController, archetypeName: String) {
                 }
             }
 
+            is HandState.FacingThreeBet -> {
+                CardRow(listOf(state.heroHand.first, state.heroHand.second))
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "${archetype.label} three-bet you. Their three-bet range here is narrow and genuinely strong — " +
+                        "continuing needs a real hand, not just \"I opened, so I must defend.\"",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { session.respondToThreeBet(true); refresh() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Call and see a flop")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { session.respondToThreeBet(false); refresh() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Fold")
+                }
+            }
+
             is HandState.HandEndedPreflop -> {
                 CardRow(listOf(state.heroHand.first, state.heroHand.second))
                 Spacer(Modifier.height(16.dp))
@@ -104,6 +122,7 @@ fun PlayScreen(nav: NavHostController, archetypeName: String) {
             }
 
             is HandState.RangeGuessResult -> {
+                var selected by remember(state) { mutableStateOf<HandClass?>(null) }
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -113,30 +132,45 @@ fun PlayScreen(nav: NavHostController, archetypeName: String) {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Green = you correctly flagged it. Red = you flagged it but villain folded that hand here. " +
-                        "Orange = still in villain's range but you missed it.",
+                        "Orange = still in villain's range but you missed it. Tap any cell for why.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.height(8.dp))
-                RangeGridWidget(cellColor = { handClass ->
-                    when {
-                        handClass in state.truePositives -> Color(0xFF2E7D32)
-                        handClass in state.falseAlarms -> Color(0xFFC62828)
-                        handClass in state.missed -> Color(0xFFEF6C00)
-                        else -> Color(0xFF9E9E9E)
-                    }
-                })
+                RangeGridWidget(
+                    cellColor = { handClass ->
+                        when {
+                            handClass in state.truePositives -> Color(0xFF2E7D32)
+                            handClass in state.falseAlarms -> Color(0xFFC62828)
+                            handClass in state.missed -> Color(0xFFEF6C00)
+                            else -> Color(0xFF9E9E9E)
+                        }
+                    },
+                    onTap = { selected = it },
+                )
+                selected?.let { handClass ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        session.explain(handClass, inTrueRange = handClass in state.truePositives || handClass in state.missed),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                state.summaryLines.forEach { line ->
+                    Text("• $line", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                }
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = { session.proceedToFlopDecision(); refresh() }, modifier = Modifier.fillMaxWidth()) {
                     Text("See the flop decision")
                 }
             }
 
-            is HandState.FlopDecision -> {
-                Text("Pot: ${state.pot}")
+            is HandState.StreetDecision -> {
+                Text("${state.street.name.lowercase().replaceFirstChar { it.uppercase() }} · Pot: ${state.pot}")
                 Spacer(Modifier.height(8.dp))
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(12.dp))
-                Text("Your hand's equity vs villain's range here: ${(state.heroEquity * 100).toInt()}%")
+                Text("Your hand's equity vs villain's remaining range here: ${(state.heroEquity * 100).toInt()}%")
                 Text("Your whole opening range's equity vs their range: ${(state.rangeAdvantage * 100).toInt()}%")
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -146,16 +180,24 @@ fun PlayScreen(nav: NavHostController, archetypeName: String) {
                         "This board favors villain's range more than usual — betting every time is less automatic.",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                Text(
+                    if (state.heroEquity > 0.5)
+                        "A bet here would be for value — you're ahead more often than not."
+                    else
+                        "A bet here would be a bluff — you're behind, betting only to fold out better hands.",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                )
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = { session.chooseFlopAction(FlopAction.CHECK); refresh() }, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { session.chooseStreetAction(FlopAction.CHECK); refresh() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Check")
                 }
                 Spacer(Modifier.height(8.dp))
-                Button(onClick = { session.chooseFlopAction(FlopAction.BET_SMALL); refresh() }, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { session.chooseStreetAction(FlopAction.BET_SMALL); refresh() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Bet half pot (${state.pot / 2})")
                 }
                 Spacer(Modifier.height(8.dp))
-                Button(onClick = { session.chooseFlopAction(FlopAction.BET_BIG); refresh() }, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { session.chooseStreetAction(FlopAction.BET_BIG); refresh() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Bet full pot (${state.pot})")
                 }
             }
