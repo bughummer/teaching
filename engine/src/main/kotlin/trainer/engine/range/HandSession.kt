@@ -19,6 +19,8 @@ private const val FOUR_BET = 35
 /** One seat still (or no longer) in the hand against hero. */
 private class VillainSeat(val archetype: Archetype, val label: String, var range: Range, var folded: Boolean = false)
 
+data class OpponentDisplay(val label: String, val folded: Boolean)
+
 sealed class HandState {
     data class PreflopDecision(val heroHand: Pair<Card, Card>, val seat: Seat) : HandState()
 
@@ -88,14 +90,17 @@ class HandSession(
         this(listOf(archetype), seat, random)
 
     init {
-        require(opponentArchetypes.size in 1..2) { "HandSession supports 1 or 2 opponents, got ${opponentArchetypes.size}" }
+        require(opponentArchetypes.size in 1..5) { "HandSession supports 1-5 opponents, got ${opponentArchetypes.size}" }
     }
 
     private val heroHand: Pair<Card, Card>
     private var board: List<Card> = emptyList()
-    private val villains: List<VillainSeat> = opponentArchetypes.mapIndexed { i, a ->
-        val label = if (opponentArchetypes.size == 1) a.label else "${a.label} (seat ${i + 1})"
-        VillainSeat(a, label, DefaultRanges.bigBlindCallRange(seat))
+    private val villains: List<VillainSeat> = run {
+        val seatLabels = TableSeats.opponentSeatLabels(seat, opponentArchetypes.size)
+        opponentArchetypes.mapIndexed { i, a ->
+            val label = if (opponentArchetypes.size == 1) a.label else "${seatLabels[i]} · ${a.label}"
+            VillainSeat(a, label, DefaultRanges.bigBlindCallRange(seat))
+        }
     }
     private var rangeGuessCursor = 0
     private var pot: Int = 0
@@ -111,6 +116,9 @@ class HandSession(
     }
 
     private fun activeVillains() = villains.filter { !it.folded }
+
+    /** Every opponent's table seat/archetype label and whether they've folded, for display. */
+    fun opponentDisplays(): List<OpponentDisplay> = villains.map { OpponentDisplay(it.label, it.folded) }
 
     fun openOrFold(open: Boolean) {
         val current = state

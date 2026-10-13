@@ -1,6 +1,7 @@
 package trainer.engine.range
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class HandSessionTest {
@@ -166,6 +167,50 @@ class HandSessionTest {
             // reaching here without HandEvaluator/Deck throwing on a card collision is the assertion
             assertTrue(session.state is HandState.HandEnded)
             return
+        }
+    }
+
+    @Test
+    fun `five opponents play a full hand without crashing, across many seeds`() {
+        val archetypes = listOf(Archetype.ROCK, Archetype.STATION, Archetype.SHARK, Archetype.ROCK, Archetype.STATION)
+        for (seed in 0 until 40) {
+            val session = HandSession(archetypes, Seat.UNDER_THE_GUN, random = kotlin.random.Random(seed.toLong()))
+            session.openOrFold(open = true)
+            assertEquals(5, session.opponentDisplays().size)
+
+            var guardRails = 0
+            while (session.state !is HandState.HandEnded && session.state !is HandState.HandEndedPreflop && guardRails < 30) {
+                when (val s = session.state) {
+                    is HandState.RangeGuess -> {
+                        session.submitRangeGuess(emptySet())
+                        session.proceedToFlopDecision()
+                    }
+                    is HandState.RangeGuessResult -> session.proceedToFlopDecision()
+                    is HandState.StreetDecision -> session.chooseStreetAction(FlopAction.entries[guardRails % 3])
+                    else -> error("unexpected state with 5 opponents: $s")
+                }
+                guardRails++
+            }
+            assertTrue(
+                session.state is HandState.HandEnded || session.state is HandState.HandEndedPreflop,
+                "expected a terminal state for seed $seed, got ${session.state}",
+            )
+        }
+    }
+
+    @Test
+    fun `opponentDisplays reflects folds after preflop`() {
+        for (seed in 0 until 50) {
+            val session = HandSession(listOf(Archetype.ROCK, Archetype.ROCK, Archetype.ROCK), random = kotlin.random.Random(seed.toLong()))
+            session.openOrFold(open = true)
+            val displays = session.opponentDisplays()
+            assertEquals(3, displays.size)
+            val activeCount = displays.count { !it.folded }
+            if (session.state is HandState.HandEndedPreflop) {
+                assertEquals(0, activeCount, "everyone folding preflop should fold every opponent display")
+            } else {
+                assertTrue(activeCount in 1..3, "at least one opponent should be active when the hand continues")
+            }
         }
     }
 }
