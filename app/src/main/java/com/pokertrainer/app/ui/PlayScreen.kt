@@ -155,7 +155,7 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
             }
 
             is HandState.RangeGuess -> {
-                Text("Pot: ${state.pot}")
+                AnimatedPotLabel(state.pot)
                 Spacer(Modifier.height(8.dp))
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(16.dp))
@@ -224,7 +224,7 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
             }
 
             is HandState.StreetDecision -> {
-                Text("${state.street.name.lowercase().replaceFirstChar { it.uppercase() }} · Pot: ${state.pot}")
+                AnimatedPotLabel(state.pot, prefix = "${state.street.name.lowercase().replaceFirstChar { it.uppercase() }} · Pot: ")
                 Spacer(Modifier.height(8.dp))
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(12.dp))
@@ -261,7 +261,7 @@ fun PlayScreen(nav: NavHostController, archetypeName: String, seatName: String, 
             }
 
             is HandState.FacingBet -> {
-                Text("${state.street.name.lowercase().replaceFirstChar { it.uppercase() }} · Pot: ${state.pot}")
+                AnimatedPotLabel(state.pot, prefix = "${state.street.name.lowercase().replaceFirstChar { it.uppercase() }} · Pot: ")
                 Spacer(Modifier.height(8.dp))
                 CardRow(listOf(state.heroHand.first, state.heroHand.second) + state.board)
                 Spacer(Modifier.height(12.dp))
