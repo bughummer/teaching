@@ -3,7 +3,7 @@ package trainer.engine.range
 import trainer.engine.Card
 
 /** A coarse bucket for why a starting-hand class plays the way it does on a given board. */
-private enum class BoardRelation { OVERPAIR, PAIRS_BOARD, FLUSH_DRAW, STRAIGHT_DRAW, TWO_HIGH_CARDS, LOW_UNCONNECTED }
+private enum class BoardRelation { OVERPAIR, PAIRS_BOARD, COMBO_DRAW, FLUSH_DRAW, STRAIGHT_DRAW, TWO_HIGH_CARDS, LOW_UNCONNECTED }
 
 object RangeExplainer {
 
@@ -43,6 +43,9 @@ object RangeExplainer {
             // this must be checked for both hole cards, not just pocket pairs, or a hand like K6 on a K-x-6
             // board (two pair) gets misread as having missed the board entirely.
             handClass.highRank in boardRanks || handClass.lowRank in boardRanks -> BoardRelation.PAIRS_BOARD
+            // A flush draw and a straight draw together is a "monster draw" -- strong enough to bet
+            // for value, not just as a bluff, unlike either draw alone.
+            hasFlushDraw(handClass, board) && hasStraightDraw(handClass, board) -> BoardRelation.COMBO_DRAW
             hasFlushDraw(handClass, board) -> BoardRelation.FLUSH_DRAW
             hasStraightDraw(handClass, board) -> BoardRelation.STRAIGHT_DRAW
             handClass.highRank >= 11 && handClass.lowRank >= 11 -> BoardRelation.TWO_HIGH_CARDS
@@ -60,6 +63,9 @@ object RangeExplainer {
             BoardRelation.PAIRS_BOARD ->
                 if (inTrueRange) "${handClass.label} pairs a board card (trips if it's a pocket pair, a pair or two pair otherwise) for a strong, well-disguised hand."
                 else "${handClass.label} connects directly with this board — matching a board card for at least a pair is too strong to be excluded."
+            BoardRelation.COMBO_DRAW ->
+                if (inTrueRange) "${handClass.label} has a flush draw and a straight draw at once — a monster draw ${archetype.label} happily continues (and often raises) with."
+                else "${handClass.label} is a combo draw here (flush and straight draw together) — one of the strongest hands in range, not a fold."
             BoardRelation.FLUSH_DRAW ->
                 if (inTrueRange) "${handClass.label} has a live flush draw here — enough equity for ${archetype.label} to continue."
                 else "${handClass.label} has a flush draw on this board — that's real equity, not a fold."
@@ -90,7 +96,7 @@ object RangeExplainer {
         }
         val missedDraws = missed.count {
             val r = relationTo(it, board)
-            r == BoardRelation.FLUSH_DRAW || r == BoardRelation.STRAIGHT_DRAW
+            r == BoardRelation.FLUSH_DRAW || r == BoardRelation.STRAIGHT_DRAW || r == BoardRelation.COMBO_DRAW
         }
         if (missedDraws > 0) {
             lines += "You missed $missedDraws draw(s): a flush or straight draw has enough equity that " +

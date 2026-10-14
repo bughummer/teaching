@@ -63,10 +63,17 @@ object DefaultRanges {
     fun bigBlindDefendRange(heroOpenSeat: Seat = Seat.BUTTON): Range =
         topFraction((0.20 + heroOpenSeat.openFraction * 0.4).coerceAtMost(0.55))
 
-    /** The strongest slice of the defend range, treated as "would 3-bet instead of flatting." */
+    /**
+     * The strongest slice of the defend range, treated as "would 3-bet instead of flatting." Width
+     * scales with how wide the opener's own range is: three-betting a tight under-the-gun open
+     * mostly gets called (their whole range is already strong), so the profitable 3-bet range there
+     * stays narrow and value-heavy; three-betting a wide button open folds out far more hands, so
+     * that 3-bet range can include a lot more bluffs.
+     */
     fun bigBlindThreeBetSlice(heroOpenSeat: Seat = Seat.BUTTON): Range {
         val defend = bigBlindDefendRange(heroOpenSeat).classes()
-        val threeBetClasses = topFraction(0.07).classes()
+        val threeBetFraction = 0.035 + heroOpenSeat.openFraction * 0.09
+        val threeBetClasses = topFraction(threeBetFraction).classes()
         return Range(threeBetClasses.filter { it in defend }.associateWith { 1.0 })
     }
 

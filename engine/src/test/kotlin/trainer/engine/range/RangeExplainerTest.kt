@@ -74,6 +74,15 @@ class RangeExplainerTest {
     }
 
     @Test
+    fun `flush draw and straight draw together is read as a monster combo draw`() {
+        // 9s 8s on a 7s 6s 2c board: flush draw (2 spades on board) and open-ended straight draw.
+        val drawBoard = listOf(Card(7, Suit.SPADES), Card(6, Suit.SPADES), Card(2, Suit.CLUBS))
+        val nineEightSpades = HandClass(9, 8, true)
+        val reason = RangeExplainer.reason(nineEightSpades, drawBoard, Archetype.STATION, inTrueRange = true)
+        assertTrue(reason.contains("monster") || reason.contains("combo draw"), "expected combo-draw wording, got: $reason")
+    }
+
+    @Test
     fun `a genuinely low, unconnected hand is still read as disconnected`() {
         val ninetwo = HandClass(9, 2, false) // doesn't match 3, K, or 6, and isn't two broadway cards
         val reason = RangeExplainer.reason(ninetwo, board, Archetype.STATION, inTrueRange = false)

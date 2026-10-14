@@ -71,4 +71,11 @@ class RangeMathTest {
         val overlap = callRange.classes().intersect(threeBet.classes())
         assertTrue(overlap.isEmpty(), "call range and three-bet range should not overlap")
     }
+
+    @Test
+    fun `three-bet slice is wider against a wider opening range`() {
+        val vsButton = DefaultRanges.bigBlindThreeBetSlice(Seat.BUTTON).totalWeightedCombos()
+        val vsUtg = DefaultRanges.bigBlindThreeBetSlice(Seat.UNDER_THE_GUN).totalWeightedCombos()
+        assertTrue(vsButton > vsUtg, "3-bet range vs a button open ($vsButton) should be wider than vs UTG ($vsUtg)")
+    }
 }
