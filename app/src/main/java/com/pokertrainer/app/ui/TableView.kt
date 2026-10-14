@@ -3,7 +3,9 @@ package com.pokertrainer.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -30,32 +32,29 @@ fun PokerTable(
     pot: Int? = null,
     modifier: Modifier = Modifier,
 ) {
-    Box(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 190.dp)
-            .clip(RoundedCornerShape(100.dp))
+            .clip(RoundedCornerShape(32.dp))
             .background(FELT_GREEN)
-            .border(BorderStroke(5.dp, RAIL_BROWN), RoundedCornerShape(100.dp))
+            .border(BorderStroke(5.dp, RAIL_BROWN), RoundedCornerShape(32.dp))
             .padding(vertical = 14.dp, horizontal = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(
-            modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
         ) {
             opponents.forEach { opponent -> SeatChip(opponent) }
         }
 
-        Column(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            if (board.isNotEmpty()) {
-                CardRow(board)
-                Spacer(Modifier.height(8.dp))
-            }
-            if (pot != null) AnimatedPotLabel(pot, prefix = "Pot: ")
+        Spacer(Modifier.height(16.dp))
+
+        if (board.isNotEmpty()) {
+            CardRow(board)
+            Spacer(Modifier.height(8.dp))
         }
+        if (pot != null) AnimatedPotLabel(pot, prefix = "Pot: ")
     }
 }
 

@@ -7,6 +7,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,7 +58,7 @@ fun SeatPickScreen(nav: NavHostController) {
 
 @Composable
 fun OpponentCountScreen(nav: NavHostController, seatName: String) {
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("Play a Hand", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text("How many opponents?", style = MaterialTheme.typography.bodyMedium)
@@ -114,7 +116,11 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
     val seat = remember(seatName) { Seat.valueOf(seatName) }
     val archetypes = remember(archetypesCsv) { archetypesCsv.split(",").map { Archetype.valueOf(it) } }
     val archetype = archetypes[0] // only meaningful heads-up (3-bet/check-raise states only reachable with one opponent)
-    val opponentSummary = remember(archetypes) { archetypes.joinToString(" + ") { it.label } }
+    val opponentSummary = remember(archetypes) {
+        archetypes.groupingBy { it.label }.eachCount().entries.joinToString(" + ") { (label, count) ->
+            if (count > 1) "$label ×$count" else label
+        }
+    }
     var session by remember(archetypes, seat) { mutableStateOf(HandSession(archetypes, seat)) }
     var uiState by remember(session) { mutableStateOf(session.state) }
     var guessed by remember(session) { mutableStateOf(setOf<HandClass>()) }
@@ -135,8 +141,12 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
         summary?.let { history.record(seat.label, opponentSummary, it) }
     }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("${seat.label} vs $opponentSummary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Text(
+            "${seat.label} vs $opponentSummary",
+            style = if (archetypes.size == 1) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
         Spacer(Modifier.height(12.dp))
 
         AnimatedContent(
