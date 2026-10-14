@@ -313,6 +313,10 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                 )
+                session.bluffReadouts().forEach { (label, note) ->
+                    Spacer(Modifier.height(4.dp))
+                    Text("vs $label: $note", style = MaterialTheme.typography.bodySmall)
+                }
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = { session.chooseStreetAction(FlopAction.CHECK); refresh() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Check")
@@ -336,6 +340,9 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
                 Spacer(Modifier.height(12.dp))
                 Text("${archetype.label} bet ${state.betSize} into you.")
                 Text("Your hand's equity here: ${(state.heroEquity * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                session.bluffReadouts().forEach { (_, note) ->
+                    Text(note, style = MaterialTheme.typography.bodySmall)
+                }
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = { session.respondToBet(FacingBetAction.CALL); refresh() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Call")

@@ -53,6 +53,10 @@ object RangeExplainer {
         }
     }
 
+    /** Would this class usually be a raise, not just a call, on this board? Used to detect a capped range. */
+    fun isMonsterClass(handClass: HandClass, board: List<Card>): Boolean =
+        relationTo(handClass, board) in setOf(BoardRelation.OVERPAIR, BoardRelation.PAIRS_BOARD, BoardRelation.COMBO_DRAW)
+
     /** One short, board-specific sentence explaining why [handClass] does or doesn't belong in range here. */
     fun reason(handClass: HandClass, board: List<Card>, archetype: Archetype, inTrueRange: Boolean): String {
         val relation = relationTo(handClass, board)

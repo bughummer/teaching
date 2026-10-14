@@ -99,7 +99,7 @@ class HandSession(
         val seatLabels = TableSeats.opponentSeatLabels(seat, opponentArchetypes.size)
         opponentArchetypes.mapIndexed { i, a ->
             val label = if (opponentArchetypes.size == 1) a.label else "${seatLabels[i]} · ${a.label}"
-            VillainSeat(a, label, DefaultRanges.bigBlindCallRange(seat))
+            VillainSeat(a, label, DefaultRanges.bigBlindCallRange(seat, opponentArchetypes.size))
         }
     }
     private var rangeGuessCursor = 0
@@ -175,7 +175,7 @@ class HandSession(
 
             ThreeBetResponse.CALL -> {
                 pot = current.pot + (THREE_BET - OPEN)
-                villains[0].range = DefaultRanges.bigBlindThreeBetSlice(seat)
+                villains[0].range = DefaultRanges.bigBlindThreeBetSlice(seat, villains.size)
                 dealFlopAndStartRangeGuesses()
             }
 
@@ -236,6 +236,10 @@ class HandSession(
         return RangeExplainer.reason(handClass, board, villain.archetype, inTrueRange)
     }
 
+    /** A short bluffing-relevant read (capped range, blockers) against each opponent it currently applies to. */
+    fun bluffReadouts(): List<Pair<String, String>> =
+        activeVillains().mapNotNull { v -> BluffReadout.note(heroHand, v.range, board)?.let { v.label to it } }
+
     fun proceedToFlopDecision() {
         val current = state
         require(current is HandState.RangeGuessResult)
@@ -249,7 +253,7 @@ class HandSession(
             v.label to Equity.vsRange(heroHand, board, v.range, trials = 300, random = random).equity
         }
         val advantages = active.map { v ->
-            v.label to Equity.rangeVsRange(DefaultRanges.openRange(seat), v.range, board, trialsPerCombo = 15, random = random)
+            v.label to Equity.rangeVsRange(DefaultRanges.openRange(seat, villains.size), v.range, board, trialsPerCombo = 15, random = random)
         }
         return HandState.StreetDecision(street, heroHand, board, pot, equities, advantages)
     }
@@ -330,7 +334,7 @@ class HandSession(
                 val villain = activeVillains()[0]
                 val raiseSize = current.pot
                 val rangeAdvantage = Equity.rangeVsRange(
-                    DefaultRanges.openRange(seat), villain.range, board, trialsPerCombo = 15, random = random,
+                    DefaultRanges.openRange(seat, villains.size), villain.range, board, trialsPerCombo = 15, random = random,
                 )
                 val continueFraction = Opponent.continueFraction(villain.archetype, 1.3, rangeAdvantage)
                 if (random.nextDouble() >= continueFraction) {

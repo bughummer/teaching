@@ -34,15 +34,40 @@ object DefaultRanges {
     }
 
     /**
-     * A range containing the strongest classes by Chen score whose combined weighted combo count is
-     * approximately [fraction] of all 1326 combos. The boundary class gets a partial (mixed) weight.
+     * With more live opponents, one-pair type hands go down in value (easily outdrawn) while
+     * speculative hands that either whiff completely or make a monster -- small/medium pocket
+     * pairs and suited connector-ish hands -- go up, since they don't need to beat a wide field with
+     * just a pair. Capped at a 4-opponent swing so the effect doesn't run away at 5-handed.
      */
-    fun topFraction(fraction: Double): Range {
+    private fun multiwayAdjustedScore(handClass: HandClass, opponentCount: Int): Double {
+        if (opponentCount <= 1) return chenScore(handClass)
+        val extra = (opponentCount - 1).coerceAtMost(4).toDouble()
+        val isPocketPair = handClass.highRank == handClass.lowRank
+        val isSmallPair = isPocketPair && handClass.highRank <= 10
+        val isSuitedConnectorish = handClass.suited == true && !isPocketPair && (handClass.highRank - handClass.lowRank) <= 2
+        val isBroadwayOffsuit = !isPocketPair && handClass.suited == false && handClass.lowRank >= 11
+        val bonus = if (isSmallPair || isSuitedConnectorish) extra * 0.5 else 0.0
+        val penalty = if (isBroadwayOffsuit) extra * 0.4 else 0.0
+        return chenScore(handClass) + bonus - penalty
+    }
+
+    /** Strongest-first order for [opponentCount] live opponents; identical to [strengthOrder] at 1 (heads-up). */
+    fun strengthOrderFor(opponentCount: Int): List<HandClass> =
+        if (opponentCount <= 1) strengthOrder
+        else HandClass.all().sortedWith(compareByDescending<HandClass> { multiwayAdjustedScore(it, opponentCount) }.thenByDescending { it.comboCount })
+
+    /**
+     * A range containing the strongest classes (by [strengthOrderFor]) whose combined weighted
+     * combo count is approximately [fraction] of all 1326 combos. The boundary class gets a partial
+     * (mixed) weight. [opponentCount] is how many live opponents this range is being built against;
+     * 1 (the default) reproduces plain heads-up Chen-score ordering.
+     */
+    fun topFraction(fraction: Double, opponentCount: Int = 1): Range {
         require(fraction in 0.0..1.0)
         val targetCombos = fraction * 1326.0
         val weights = mutableMapOf<HandClass, Double>()
         var accumulated = 0.0
-        for (handClass in strengthOrder) {
+        for (handClass in strengthOrderFor(opponentCount)) {
             if (accumulated >= targetCombos) break
             val remaining = targetCombos - accumulated
             val weight = (remaining / handClass.comboCount).coerceIn(0.0, 1.0)
@@ -52,7 +77,7 @@ object DefaultRanges {
         return Range(weights)
     }
 
-    fun openRange(seat: Seat): Range = topFraction(seat.openFraction)
+    fun openRange(seat: Seat, opponentCount: Int = 1): Range = topFraction(seat.openFraction, opponentCount)
     fun buttonOpenRange(): Range = openRange(Seat.BUTTON)
 
     /**
@@ -60,8 +85,8 @@ object DefaultRanges {
      * open is much more credible than a button open, so the big blind can afford to defend tighter
      * against it and still show a profit, and wider against a button open.
      */
-    fun bigBlindDefendRange(heroOpenSeat: Seat = Seat.BUTTON): Range =
-        topFraction((0.20 + heroOpenSeat.openFraction * 0.4).coerceAtMost(0.55))
+    fun bigBlindDefendRange(heroOpenSeat: Seat = Seat.BUTTON, opponentCount: Int = 1): Range =
+        topFraction((0.20 + heroOpenSeat.openFraction * 0.4).coerceAtMost(0.55), opponentCount)
 
     /**
      * The strongest slice of the defend range, treated as "would 3-bet instead of flatting." Width
@@ -70,17 +95,17 @@ object DefaultRanges {
      * stays narrow and value-heavy; three-betting a wide button open folds out far more hands, so
      * that 3-bet range can include a lot more bluffs.
      */
-    fun bigBlindThreeBetSlice(heroOpenSeat: Seat = Seat.BUTTON): Range {
-        val defend = bigBlindDefendRange(heroOpenSeat).classes()
+    fun bigBlindThreeBetSlice(heroOpenSeat: Seat = Seat.BUTTON, opponentCount: Int = 1): Range {
+        val defend = bigBlindDefendRange(heroOpenSeat, opponentCount).classes()
         val threeBetFraction = 0.035 + heroOpenSeat.openFraction * 0.09
-        val threeBetClasses = topFraction(threeBetFraction).classes()
+        val threeBetClasses = topFraction(threeBetFraction, opponentCount).classes()
         return Range(threeBetClasses.filter { it in defend }.associateWith { 1.0 })
     }
 
     /** The defend range minus the three-bet slice: hands that call rather than raise. */
-    fun bigBlindCallRange(heroOpenSeat: Seat = Seat.BUTTON): Range {
-        val threeBet = bigBlindThreeBetSlice(heroOpenSeat).classes()
-        return bigBlindDefendRange(heroOpenSeat).filter { it !in threeBet }
+    fun bigBlindCallRange(heroOpenSeat: Seat = Seat.BUTTON, opponentCount: Int = 1): Range {
+        val threeBet = bigBlindThreeBetSlice(heroOpenSeat, opponentCount).classes()
+        return bigBlindDefendRange(heroOpenSeat, opponentCount).filter { it !in threeBet }
     }
 }
 

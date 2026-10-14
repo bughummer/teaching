@@ -78,4 +78,25 @@ class RangeMathTest {
         val vsUtg = DefaultRanges.bigBlindThreeBetSlice(Seat.UNDER_THE_GUN).totalWeightedCombos()
         assertTrue(vsButton > vsUtg, "3-bet range vs a button open ($vsButton) should be wider than vs UTG ($vsUtg)")
     }
+
+    @Test
+    fun `strengthOrderFor at one opponent reproduces plain heads-up strength order`() {
+        assertEquals(DefaultRanges.strengthOrder, DefaultRanges.strengthOrderFor(1))
+    }
+
+    @Test
+    fun `a suited connector ranks relatively higher as more opponents are in the pot`() {
+        val nineEightSuited = HandClass(9, 8, true)
+        val headsUpRank = DefaultRanges.strengthOrderFor(1).indexOf(nineEightSuited)
+        val fiveWayRank = DefaultRanges.strengthOrderFor(5).indexOf(nineEightSuited)
+        assertTrue(fiveWayRank < headsUpRank, "98s should rank higher multi-way ($fiveWayRank) than heads-up ($headsUpRank)")
+    }
+
+    @Test
+    fun `an offsuit broadway hand ranks relatively lower as more opponents are in the pot`() {
+        val acejackOffsuit = HandClass(14, 11, false)
+        val headsUpRank = DefaultRanges.strengthOrderFor(1).indexOf(acejackOffsuit)
+        val fiveWayRank = DefaultRanges.strengthOrderFor(5).indexOf(acejackOffsuit)
+        assertTrue(fiveWayRank > headsUpRank, "AJo should rank lower multi-way ($fiveWayRank) than heads-up ($headsUpRank)")
+    }
 }
