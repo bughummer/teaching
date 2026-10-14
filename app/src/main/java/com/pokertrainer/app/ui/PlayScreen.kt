@@ -155,6 +155,12 @@ fun PlayScreen(nav: NavHostController, seatName: String, archetypesCsv: String, 
             label = "handState",
         ) { targetState ->
         Column {
+        CoachTips.forState(targetState, seat)?.let { tip ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                Text(tip, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.height(12.dp))
+        }
         when (val state = targetState) {
             is HandState.PreflopDecision -> {
                 Text("Your hand:")
