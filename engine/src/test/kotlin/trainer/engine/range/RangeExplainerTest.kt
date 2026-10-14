@@ -48,6 +48,32 @@ class RangeExplainerTest {
     }
 
     @Test
+    fun `an open-ended straight draw is not read as disconnected`() {
+        val drawBoard = listOf(Card(7, Suit.CLUBS), Card(6, Suit.HEARTS), Card(2, Suit.SPADES))
+        val nineEightSuited = HandClass(9, 8, true) // 98 makes an open-ended straight draw on 7-6-2
+        val reason = RangeExplainer.reason(nineEightSuited, drawBoard, Archetype.STATION, inTrueRange = true)
+        assertFalse(reason.contains("disconnected"), "98 has an open-ended straight draw on 7-6-2; got: $reason")
+        assertTrue(reason.contains("draw"), "expected draw-related wording, got: $reason")
+    }
+
+    @Test
+    fun `a gutshot straight draw is not read as disconnected`() {
+        val drawBoard = listOf(Card(9, Suit.CLUBS), Card(6, Suit.HEARTS), Card(2, Suit.SPADES))
+        val eightSeven = HandClass(8, 7, false) // 87 + 9-6 board needs a 5 (gutshot via 9-8-7-6-5, also open via 5 or... check)
+        val reason = RangeExplainer.reason(eightSeven, drawBoard, Archetype.STATION, inTrueRange = true)
+        assertFalse(reason.contains("disconnected"), "87 has a straight draw with a 9 on board; got: $reason")
+    }
+
+    @Test
+    fun `a suited hand sharing two board suits is read as a flush draw`() {
+        val flushBoard = listOf(Card(2, Suit.HEARTS), Card(9, Suit.HEARTS), Card(4, Suit.CLUBS))
+        val kqHearts = HandClass(13, 12, true) // suited class; representative combo shares hearts with the board
+        val reason = RangeExplainer.reason(kqHearts, flushBoard, Archetype.STATION, inTrueRange = true)
+        assertFalse(reason.contains("disconnected"), "a suited class here has a flush draw; got: $reason")
+        assertTrue(reason.contains("flush"), "expected flush-draw wording, got: $reason")
+    }
+
+    @Test
     fun `a genuinely low, unconnected hand is still read as disconnected`() {
         val ninetwo = HandClass(9, 2, false) // doesn't match 3, K, or 6, and isn't two broadway cards
         val reason = RangeExplainer.reason(ninetwo, board, Archetype.STATION, inTrueRange = false)
